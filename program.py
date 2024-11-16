@@ -34,7 +34,7 @@ except getopt.error as err:
     print (str(err))
 
 
-port_scanner = PortScanner(host, port, servers)
+port_scanner = PortScanner(host, port)
 
 port_scanner.start()
 
