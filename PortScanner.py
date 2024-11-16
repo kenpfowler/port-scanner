@@ -31,11 +31,11 @@ class PortScanner:
     def handle_tcp_connection(self):
         try:
             self.tcp_sock.connect((self.host, self.port))
-            self.logger.info("socket is open")
+            self.logger.info("socket is open to tcp connection")
         except KeyboardInterrupt:
             self.logger.info("aborting scan")
         except ConnectionRefusedError:
-            self.logger.info("socket is not open")
+            self.logger.info("socket is not open to tcp connection")
         except Exception as e:
             self.logger.error(f"error was raised: {e}")
         
