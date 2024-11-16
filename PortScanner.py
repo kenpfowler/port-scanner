@@ -13,33 +13,58 @@ import logging
 # a port is identified with a 16 bit number so that 2^16 or 65536 ports
 # apparently we dont use port 0 because it is reserved so that leaves 65535 ports that can be open or closed
 
-# ports 0 to 1023 are Well-Known Ports. 
-# These ports are assigned to a specific server sevice, eg, port 80 is used by web servers. 
-# Ports 1024 to 49151 are Registered Ports. These ports can be registered by developers to designate a particular port for their application. 
+# ports 0 to 1023 are Well-Known Ports.
+# These ports are assigned to a specific server sevice, eg, port 80 is used by web servers.
+# Ports 1024 to 49151 are Registered Ports. These ports can be registered by developers to designate a particular port for their application.
 # Ports 49152 to 65535 are Public Ports.
 
+
 class PortScanner:
-    def __init__(self, host = "localhost", port = 80):
-         self.host = host
-         self.port = port
-         self.tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    max_port = 65535
+    min_port = 1
 
-         logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-         self.logger = logging.getLogger(__name__)
-         self.max_port = 65535
+    def __init__(self, host="localhost", ports="1-65535"):
+        self.host = host
+        self.ports = ports
+        self.port_range = self.parse_port_range(ports)
+        self.tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        logging.basicConfig(
+            level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+        )
+        self.logger = logging.getLogger(__name__)
 
-    def handle_tcp_connection(self):
+    def parse_port_range(self, port_range):
         try:
-            self.tcp_sock.connect((self.host, self.port))
-            self.logger.info("socket is open to tcp connection")
+            # Split the input string
+            start, end = map(int, port_range.split("-"))
+
+            # Ensure the range is valid
+            if start > end or start < self.min_port or end > self.max_port:
+                raise ValueError(
+                    "Invalid port range. Must be between 1 and 65535, and start <= end."
+                )
+
+            # Generate the list of ports
+            return list(range(start, end + 1))
+
+        except ValueError as e:
+            raise ValueError(f"Invalid port range format: {e}")
+
+    def handle_tcp_connection(self, port):
+        try:
+            self.tcp_sock.connect((self.host, port))
+            self.logger.info(f"socket is open to tcp connection on port {port}")
         except KeyboardInterrupt:
             self.logger.info("aborting scan")
         except ConnectionRefusedError:
-            self.logger.info("socket is not open to tcp connection")
+            self.logger.info(f"socket is not open to tcp connection on port {port}")
         except Exception as e:
             self.logger.error(f"error was raised: {e}")
-        
+
     def start(self):
-        self.logger.info(f"scanning port {self.port} on host {self.host}")
-        self.handle_tcp_connection()
+        self.logger.info(f"scanning ports {self.ports} on host {self.host}")
+
+        for port in self.port_range:
+            self.handle_tcp_connection(port)
+
         self.tcp_sock.close()
