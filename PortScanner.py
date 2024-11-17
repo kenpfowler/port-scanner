@@ -1,5 +1,7 @@
 import socket
 import logging
+import time
+import asyncio
 
 
 # What is a port scanner?
@@ -17,6 +19,21 @@ import logging
 # These ports are assigned to a specific server sevice, eg, port 80 is used by web servers.
 # Ports 1024 to 49151 are Registered Ports. These ports can be registered by developers to designate a particular port for their application.
 # Ports 49152 to 65535 are Public Ports.
+
+
+# here is the output from nmap
+# Nmap scan report for localhost (127.0.0.1)
+# Host is up (0.00013s latency).
+# Not shown: 65529 closed tcp ports (conn-refused)
+# PORT      STATE SERVICE
+# 80/tcp    open  http
+# 443/tcp   open  https
+# 631/tcp   open  ipp
+# 5432/tcp  open  postgresql
+# 5433/tcp  open  pyrrho
+# 10000/tcp open  snet-sensor-mgmt
+
+# Nmap done: 1 IP address (1 host up) scanned in 2.75 seconds
 
 
 class PortScanner:
@@ -50,9 +67,9 @@ class PortScanner:
         except ValueError as e:
             raise ValueError(f"Invalid port range format: {e}")
 
-    def handle_tcp_connection(self, port):
+    async def handle_tcp_connection(self, port):
         try:
-            self.tcp_sock.connect((self.host, port))
+            await self.tcp_sock.connect((self.host, port))
             self.logger.info(f"socket is open to tcp connection on port {port}")
         except KeyboardInterrupt:
             self.logger.info("aborting scan")
@@ -61,10 +78,21 @@ class PortScanner:
         except Exception as e:
             self.logger.error(f"error was raised: {e}")
 
-    def start(self):
+    async def start(self):
+        start_time = time.time()
         self.logger.info(f"scanning ports {self.ports} on host {self.host}")
 
+        tasks = []
         for port in self.port_range:
-            self.handle_tcp_connection(port)
+            connection_task = asyncio.create_task(self.handle_tcp_connection(port))
+            tasks.append(connection_task)
 
+        await asyncio.gather(*tasks) 
+
+        end_time = time.time()
+        duration = end_time - start_time
+
+        self.logger.info(f"scan completed in {duration}")
+        self.tcp_sock.shutdown(socket.SHUT_RDWR)
         self.tcp_sock.close()
+

@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 
 from PortScanner import PortScanner
 
@@ -15,7 +16,7 @@ def validate_ip_range(ip_range):
         )
 
 
-def main():
+async def main():
     # Create the argument parser
     parser = argparse.ArgumentParser(description="Scan for open ports on a device.")
 
@@ -46,8 +47,8 @@ def main():
 
     # Add logic for scanning IPs and ports here...
     port_scanner = PortScanner("localhost", ports)
-    port_scanner.start()
+    await port_scanner.start()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
