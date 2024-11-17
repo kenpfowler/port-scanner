@@ -79,7 +79,6 @@ class PortScanner:
         except Exception as e:
             self.logger.error(f"error was raised: {e}")
         finally:
-            tcp_sock.shutdown(socket.SHUT_RDWR)
             tcp_sock.close()  # Ensure the socket is closed
 
 
@@ -97,4 +96,3 @@ class PortScanner:
         end_time = time.time()
         duration = end_time - start_time
         self.logger.info(f"Scan completed in {duration:.2f} seconds")
-
