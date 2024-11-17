@@ -53,7 +53,8 @@ class PortScanner:
 
     def handle_tcp_connection(self, port):
         try:
-            self.tcp_sock.connect((self.host, port))
+            tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            tcp_sock.connect((self.host, port))
             self.logger.info(f"socket is open to tcp connection on port {port}")
         except KeyboardInterrupt:
             self.logger.info("aborting scan")
@@ -61,6 +62,8 @@ class PortScanner:
             self.logger.info(f"socket is not open to tcp connection on port {port}")
         except Exception as e:
             self.logger.error(f"error was raised: {e}")
+        finally:
+            tcp_sock.close()
 
     def start(self):
         self.logger.info(f"scanning ports {self.ports} on host {self.host}")
@@ -72,6 +75,4 @@ class PortScanner:
         end_time = time.time()
         duration = end_time - start_time
         
-        self.logger.info(f"port scan completed in {duration}")
-        self.tcp_sock.shutdown(socket.SHUT_RDWR)
-        self.tcp_sock.close()
+        self.logger.info(f"scan completed in {duration:.2f} seconds")
