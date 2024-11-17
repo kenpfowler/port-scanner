@@ -1,5 +1,6 @@
 import socket
 import logging
+import time
 
 
 # What is a port scanner?
@@ -63,8 +64,14 @@ class PortScanner:
 
     def start(self):
         self.logger.info(f"scanning ports {self.ports} on host {self.host}")
+        start_time = time.time()
 
         for port in self.port_range:
             self.handle_tcp_connection(port)
 
+        end_time = time.time()
+        duration = end_time - start_time
+        
+        self.logger.info(f"port scan completed in {duration}")
+        self.tcp_sock.shutdown(socket.SHUT_RDWR)
         self.tcp_sock.close()
