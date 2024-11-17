@@ -44,7 +44,6 @@ class PortScanner:
         self.host = host
         self.ports = ports
         self.port_range = self.parse_port_range(ports)
-        self.tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         logging.basicConfig(
             level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
         )
@@ -69,7 +68,9 @@ class PortScanner:
 
     async def handle_tcp_connection(self, port):
         try:
-            await self.tcp_sock.connect((self.host, port))
+            tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            tcp_sock.setblocking(False)  # Non-blocking mode for asyncio
+            await asyncio.get_event_loop().sock_connect(tcp_sock, (self.host, port))
             self.logger.info(f"socket is open to tcp connection on port {port}")
         except KeyboardInterrupt:
             self.logger.info("aborting scan")
@@ -77,6 +78,10 @@ class PortScanner:
             self.logger.info(f"socket is not open to tcp connection on port {port}")
         except Exception as e:
             self.logger.error(f"error was raised: {e}")
+        finally:
+            tcp_sock.shutdown(socket.SHUT_RDWR)
+            tcp_sock.close()  # Ensure the socket is closed
+
 
     async def start(self):
         start_time = time.time()
@@ -91,8 +96,5 @@ class PortScanner:
 
         end_time = time.time()
         duration = end_time - start_time
-
-        self.logger.info(f"scan completed in {duration}")
-        self.tcp_sock.shutdown(socket.SHUT_RDWR)
-        self.tcp_sock.close()
+        self.logger.info(f"Scan completed in {duration:.2f} seconds")
 
