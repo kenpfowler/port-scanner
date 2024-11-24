@@ -1,7 +1,7 @@
 import socket
 import logging
 import time
-
+import asyncio
 
 # What is a port scanner?
 # a port scanner is a program that attempts to enumerate which ports are open on a machine.
@@ -19,6 +19,16 @@ import time
 # Ports 1024 to 49151 are Registered Ports. These ports can be registered by developers to designate a particular port for their application.
 # Ports 49152 to 65535 are Public Ports.
 
+# Nmap scan report for localhost (127.0.0.1)
+# Host is up (0.00010s latency).
+# Not shown: 995 closed tcp ports (conn-refused)
+# PORT      STATE SERVICE
+# 80/tcp    open  http
+# 443/tcp   open  https
+# 631/tcp   open  ipp
+# 5432/tcp  open  postgresql
+# 10000/tcp open  snet-sensor-mgmt
+
 
 class PortScanner:
     max_port = 65535
@@ -33,6 +43,7 @@ class PortScanner:
             level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
         )
         self.logger = logging.getLogger(__name__)
+        self.results = []
 
     def parse_port_range(self, port_range):
         try:
@@ -51,28 +62,40 @@ class PortScanner:
         except ValueError as e:
             raise ValueError(f"Invalid port range format: {e}")
 
-    def handle_tcp_connection(self, port):
+    async def handle_tcp_connection(self, port):
+        tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        tcp_sock.setblocking(False)
+
         try:
-            tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            tcp_sock.connect((self.host, port))
-            self.logger.info(f"socket is open to tcp connection on port {port}")
+            await asyncio.get_event_loop().sock_connect(tcp_sock, (self.host, port))
+            self.results.append((port, "OPEN"))
+        except ConnectionRefusedError:
+            self.results.append((port, "CLOSED"))
         except KeyboardInterrupt:
             self.logger.info("aborting scan")
-        except ConnectionRefusedError:
-            pass
         except Exception as e:
             self.logger.error(f"error was raised: {e}")
         finally:
             tcp_sock.close()
 
-    def start(self):
+    async def start(self):
         self.logger.info(f"scanning ports {self.ports} on host {self.host}")
-        start_time = time.time()
+        start_time = time.perf_counter()
+
+        tasks = []
 
         for port in self.port_range:
-            self.handle_tcp_connection(port)
+            tasks.append(asyncio.create_task(self.handle_tcp_connection(port)))
 
-        end_time = time.time()
+        await asyncio.gather(*tasks)
+
+        end_time = time.perf_counter()
         duration = end_time - start_time
         
         self.logger.info(f"scan completed in {duration:.2f} seconds")
+        filtered = [result for result in self.results if result[1] == "OPEN"]
+        for connection in filtered:
+            self.logger.info(f"port - {connection[0]} status - {connection[1]}")
+
+        
+         
