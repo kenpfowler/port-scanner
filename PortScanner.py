@@ -59,7 +59,7 @@ class PortScanner:
         except KeyboardInterrupt:
             self.logger.info("aborting scan")
         except ConnectionRefusedError:
-            self.logger.info(f"socket is not open to tcp connection on port {port}")
+            pass
         except Exception as e:
             self.logger.error(f"error was raised: {e}")
         finally:
