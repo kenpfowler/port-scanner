@@ -46,9 +46,8 @@ async def main():
     ports = args.ports
 
     # Add logic for scanning IPs and ports here...
-    port_scanner = PortScanner("localhost", ports)
-    await port_scanner.start()
-
+    scanner = PortScanner(host="localhost", ports=ports)
+    await scanner.start()
 
 if __name__ == "__main__":
     asyncio.run(main())
