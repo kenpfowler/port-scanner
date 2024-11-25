@@ -34,9 +34,10 @@ class PortScanner:
     max_port = 65535
     min_port = 1
 
-    def __init__(self, host="localhost", ports="1-65535"):
-        self.concurrency_limit = 1000
+    def __init__(self, host="localhost", ports="1-65535", concurrency_limit=1000):
+        self.concurrency_limit = concurrency_limit
         self.host = host
+        self.ip = socket.gethostbyname(host)
         self.ports = ports
         self.port_range = self.parse_port_range(ports)
         logging.basicConfig(
@@ -44,7 +45,6 @@ class PortScanner:
         )
         self.logger = logging.getLogger(__name__)
         self.results = []
-
 
     def parse_port_range(self, port_range):
         try:
@@ -68,7 +68,9 @@ class PortScanner:
         sock.setblocking(False)
 
         try:
-            await asyncio.wait_for(asyncio.get_event_loop().sock_connect(sock, (self.host, port)), 1)
+            await asyncio.wait_for(
+                asyncio.get_event_loop().sock_connect(sock, (self.ip, port)), 1
+            )
             self.results.append((port, "OPEN"))
         except ConnectionRefusedError:
             self.results.append((port, "CLOSED"))
@@ -83,27 +85,25 @@ class PortScanner:
 
     def chunk_ports(self):
         total_ports = len(self.port_range)
-        
+
         for i in range(0, total_ports, self.concurrency_limit):
-            yield self.port_range[i:i + self.concurrency_limit]
+            ports = self.port_range[i : i + self.concurrency_limit]
+            tasks = [asyncio.create_task(self.check_port(port)) for port in ports]
+            yield tasks
 
     async def start(self):
-        self.logger.info(f"scanning ports {self.ports} on host {self.host}")
+        self.logger.info(f"scanning ports {self.ports} on host {self.ip}")
         start_time = time.perf_counter()
-        
-        for ports in self.chunk_ports():
-            tasks = [asyncio.create_task(self.check_port(port)) for port in ports]
+
+        for tasks in self.chunk_ports():
             await asyncio.gather(*tasks)
 
         await asyncio.gather(*tasks)
 
         end_time = time.perf_counter()
         duration = end_time - start_time
-        
+
         self.logger.info(f"scan completed in {duration:.2f} seconds")
         filtered = [result for result in self.results if result[1] == "OPEN"]
         for connection in filtered:
             self.logger.info(f"port - {connection[0]} status - {connection[1]}")
-
-        
-         
