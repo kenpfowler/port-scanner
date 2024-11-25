@@ -35,15 +35,16 @@ class PortScanner:
     min_port = 1
 
     def __init__(self, host="localhost", ports="1-65535"):
+        self.concurrency_limit = 1000
         self.host = host
         self.ports = ports
         self.port_range = self.parse_port_range(ports)
-        self.tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         logging.basicConfig(
             level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
         )
         self.logger = logging.getLogger(__name__)
         self.results = []
+
 
     def parse_port_range(self, port_range):
         try:
@@ -62,30 +63,37 @@ class PortScanner:
         except ValueError as e:
             raise ValueError(f"Invalid port range format: {e}")
 
-    async def handle_tcp_connection(self, port):
-        tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        tcp_sock.setblocking(False)
+    async def check_port(self, port):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setblocking(False)
 
         try:
-            await asyncio.get_event_loop().sock_connect(tcp_sock, (self.host, port))
+            await asyncio.wait_for(asyncio.get_event_loop().sock_connect(sock, (self.host, port)), 1)
             self.results.append((port, "OPEN"))
         except ConnectionRefusedError:
             self.results.append((port, "CLOSED"))
+        except asyncio.TimeoutError:
+            self.results.append((port, "FILTERED"))
         except KeyboardInterrupt:
             self.logger.info("aborting scan")
         except Exception as e:
             self.logger.error(f"error was raised: {e}")
         finally:
-            tcp_sock.close()
+            sock.close()
+
+    def chunk_ports(self):
+        total_ports = len(self.port_range)
+        
+        for i in range(0, total_ports, self.concurrency_limit):
+            yield self.port_range[i:i + self.concurrency_limit]
 
     async def start(self):
         self.logger.info(f"scanning ports {self.ports} on host {self.host}")
         start_time = time.perf_counter()
-
-        tasks = []
-
-        for port in self.port_range:
-            tasks.append(asyncio.create_task(self.handle_tcp_connection(port)))
+        
+        for ports in self.chunk_ports():
+            tasks = [asyncio.create_task(self.check_port(port)) for port in ports]
+            await asyncio.gather(*tasks)
 
         await asyncio.gather(*tasks)
 
