@@ -98,8 +98,6 @@ class PortScanner:
         for tasks in self.chunk_ports():
             await asyncio.gather(*tasks)
 
-        await asyncio.gather(*tasks)
-
         end_time = time.perf_counter()
         duration = end_time - start_time
 
